@@ -9,6 +9,8 @@
 #include <asm/io.h>
 #include <asm/arch/rk_atags.h>
 #include <asm/arch/param.h>
+#include <linux/arm-smccc.h>
+#include <optee_include/teesmc_v2.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -132,6 +134,23 @@ struct memblock param_parse_optee_mem(void)
 			mem.size = tos_parameter->tee_mem.size;
 		}
 	}
+
+#ifdef CONFIG_ROCKCHIP_PX30
+	/*
+	 * OP-TEE v2 reports itself only via atags, which old miniloaders
+	 * lack. It is loaded at 0x08400000 and ends with its shared memory.
+	 */
+	if (!mem.size) {
+		struct arm_smccc_res res;
+
+		arm_smccc_smc(OPTEE_SMC_GET_SHM_CONFIG_V2, 0, 0, 0, 0, 0, 0, 0,
+			      &res);
+		if (!res.a0 && res.a1 > 0x08400000) {
+			mem.base = 0x08400000;
+			mem.size = res.a1 + res.a2 - mem.base;
+		}
+	}
+#endif
 
 	if (mem.size)
 		gd->flags |= GD_FLG_BL32_ENABLED;
