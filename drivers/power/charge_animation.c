@@ -14,6 +14,7 @@
 #include <led.h>
 #include <rtc.h>
 #include <pwm.h>
+#include <asm/arch/boot_mode.h>
 #include <asm/arch/rockchip_smccc.h>
 #include <asm/suspend.h>
 #include <linux/input.h>
@@ -593,6 +594,13 @@ static int charge_animation_show(struct udevice *dev)
 	/* Not valid charge mode, exit */
 #ifdef CONFIG_RKIMG_BOOTLOADER
 #ifdef CONFIG_PLATFORM_ODROID_GOADV
+	/* A kernel reboot leaves its reason here; a charger plug-in does not */
+	ret = readl((void *)CONFIG_ROCKCHIP_BOOT_MODE_REG);
+	if ((ret & ~0xff) == REBOOT_FLAG && ret != BOOT_CHARGING) {
+		printf("Exit charge: rebooted by the system\n");
+		return 0;
+	}
+
 	/* Check charger and power key instead of boot_mode */
 	charging = fg_charger_get_chrg_online(dev);
 	key_state = key_read(KEY_POWER);
